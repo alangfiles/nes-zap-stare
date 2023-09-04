@@ -21,13 +21,16 @@
 	.import		_oam_meta_spr
 	.import		_sfx_play
 	.import		_bank_spr
+	.import		_rand8
 	.import		_set_vram_buffer
 	.import		_zap_shoot
 	.import		_zap_read
 	.export		_pad2_zapper
 	.export		_zapper_ready
 	.export		_hit_detected
-	.export		_circle_active
+	.export		_game_mode
+	.export		_circle_y_direction
+	.export		_circle_x_direction
 	.export		_circle_color
 	.export		_circle_x
 	.export		_circle_y
@@ -38,6 +41,7 @@
 	.export		_temp2
 	.export		_move_circle
 	.export		_draw_circle
+	.export		_initialize
 	.export		_GiantWhiteCircle
 	.export		_pal1
 	.export		_pal2
@@ -331,7 +335,11 @@ _zapper_ready:
 	.res	1,$00
 _hit_detected:
 	.res	1,$00
-_circle_active:
+_game_mode:
+	.res	1,$00
+_circle_y_direction:
+	.res	1,$00
+_circle_x_direction:
 	.res	1,$00
 _circle_color:
 	.res	1,$00
@@ -361,82 +369,121 @@ _temp2:
 .segment	"CODE"
 
 ;
-; circle_y_speed += 0x0010;
-;
-	lda     #$10
-	clc
-	adc     _circle_y_speed
-	sta     _circle_y_speed
-	bcc     L014F
-	inc     _circle_y_speed+1
-;
-; if ((circle_y_speed < 0x8000) && (circle_y_speed > 0x0400))
-;
-L014F:	ldx     _circle_y_speed+1
-	cpx     #$80
-	bcs     L0150
-	lda     _circle_y_speed
-	cmp     #$01
-	lda     _circle_y_speed+1
-	sbc     #$04
-	bcc     L0150
-;
-; circle_y_speed = 0x0400;
-;
-	ldx     #$04
-	lda     #$00
-	sta     _circle_y_speed
-	stx     _circle_y_speed+1
-;
-; circle_x += circle_x_speed;
-;
-L0150:	lda     _circle_x_speed
-	clc
-	adc     _circle_x
-	sta     _circle_x
-	lda     _circle_x_speed+1
-	adc     _circle_x+1
-	sta     _circle_x+1
-;
-; if (circle_x >= 0xf000)
+; if (circle_x >= 0xB500)
 ;
 	lda     _circle_x
 	cmp     #$00
 	lda     _circle_x+1
-	sbc     #$F0
-	bcc     L015A
+	sbc     #$B5
+	bcc     L015F
 ;
-; circle_active = 0;
+; circle_x_direction = 1;
+;
+	lda     #$01
+	sta     _circle_x_direction
+;
+; if (circle_x <= 0x0100)
+;
+L015F:	lda     _circle_x+1
+	cmp     #$01
+	bne     L0165
+	lda     _circle_x
+	cmp     #$01
+L0165:	bcs     L0163
+;
+; circle_x_direction = 0;
 ;
 	lda     #$00
-	sta     _circle_active
+	sta     _circle_x_direction
 ;
-; circle_y += circle_y_speed;
+; if (circle_x_direction)
 ;
-L015A:	lda     _circle_y_speed
+L0163:	lda     _circle_x_direction
+	beq     L0168
+;
+; circle_x += circle_x_speed;
+;
+	lda     _circle_x_speed
 	clc
-	adc     _circle_y
-	sta     _circle_y
-	lda     _circle_y_speed+1
-	adc     _circle_y+1
-	sta     _circle_y+1
+	adc     _circle_x
+	sta     _circle_x
+	lda     _circle_x_speed+1
 ;
-; if (circle_y >= 0xe000)
+; else
+;
+	jmp     L018E
+;
+; circle_x -= circle_x_speed;
+;
+L0168:	lda     _circle_x_speed
+	eor     #$FF
+	sec
+	adc     _circle_x
+	sta     _circle_x
+	lda     _circle_x_speed+1
+	eor     #$FF
+L018E:	adc     _circle_x+1
+	sta     _circle_x+1
+;
+; if (circle_y >= 0x9000)
 ;
 	lda     _circle_y
 	cmp     #$00
 	lda     _circle_y+1
-	sbc     #$E0
-	bcc     L0160
+	sbc     #$90
+	bcc     L016F
 ;
-; circle_active = 0;
+; circle_y_direction = 1;
+;
+	lda     #$01
+	sta     _circle_y_direction
+;
+; if (circle_y <= 0x0100)
+;
+L016F:	lda     _circle_y+1
+	cmp     #$01
+	bne     L0175
+	lda     _circle_y
+	cmp     #$01
+L0175:	bcs     L0173
+;
+; circle_y_direction = 0;
 ;
 	lda     #$00
-	sta     _circle_active
+	sta     _circle_y_direction
+;
+; if (circle_y_direction)
+;
+L0173:	lda     _circle_y_direction
+	beq     L0178
+;
+; circle_y += circle_y_speed;
+;
+	lda     _circle_y_speed
+	clc
+	adc     _circle_y
+	sta     _circle_y
+	lda     _circle_y_speed+1
+;
+; else
+;
+	jmp     L018F
+;
+; circle_y -= circle_y_speed;
+;
+L0178:	lda     _circle_y_speed
+	eor     #$FF
+	sec
+	adc     _circle_y
+	sta     _circle_y
+	lda     _circle_y_speed+1
+	eor     #$FF
+L018F:	adc     _circle_y+1
+	sta     _circle_y+1
 ;
 ; }
 ;
-L0160:	rts
+	rts
 
 .endproc
 
@@ -461,11 +508,6 @@ L0160:	rts
 	lda     _circle_y+1
 	sta     _temp2
 ;
-; if (circle_color == 0)
-;
-	lda     _circle_color
-	bne     L016B
-;
 ; oam_meta_spr(temp1, temp2, GiantWhiteCircle);
 ;
 	jsr     decsp2
@@ -478,19 +520,84 @@ L0160:	rts
 	lda     #<(_GiantWhiteCircle)
 	ldx     #>(_GiantWhiteCircle)
 	jmp     _oam_meta_spr
+
+.endproc
+
+; ---------------------------------------------------------------
+; void __near__ initialize (void)
+; ---------------------------------------------------------------
+
+.segment	"CODE"
+
+.proc	_initialize: near
+
+.segment	"CODE"
+
 ;
-; oam_meta_spr(temp1, temp2, GiantWhiteCircle);
+; game_mode = MODE_GAME;
 ;
-L016B:	jsr     decsp2
+	lda     #$01
+	sta     _game_mode
+;
+; circle_color = (circle_color + 1) & 1; // 0 or 1
+;
+	lda     _circle_color
+	clc
+	adc     #$01
+	and     #$01
+	sta     _circle_color
+;
+; temp1 = rand8();
+;
+	jsr     _rand8
+	sta     _temp1
+;
+; circle_x = (temp1 << 7) + 0x4000; // should give 0x4000-0xbf80
+;
+	ldx     #$00
 	lda     _temp1
-	ldy     #$01
-	sta     (sp),y
-	lda     _temp2
-	dey
-	sta     (sp),y
-	lda     #<(_GiantWhiteCircle)
-	ldx     #>(_GiantWhiteCircle)
-	jmp     _oam_meta_spr
+	jsr     aslax4
+	jsr     aslax3
+	sta     _circle_x
+	txa
+	clc
+	adc     #$40
+	sta     _circle_x+1
+;
+; circle_y = 0x7000;        // int
+;
+	ldx     #$70
+	lda     #$00
+	sta     _circle_y
+	stx     _circle_y+1
+;
+; temp1 = rand8();
+;
+	jsr     _rand8
+	sta     _temp1
+;
+; circle_x_speed = ((temp1 & 0x1f) - 0x0f) << 4;
+;
+	ldx     #$00
+	and     #$1F
+	sec
+	sbc     #$0F
+	bcs     L015B
+	dex
+L015B:	jsr     shlax4
+	sta     _circle_x_speed
+	stx     _circle_x_speed+1
+;
+; circle_y_speed = 0xff00;
+;
+	ldx     #$FF
+	lda     #$00
+	sta     _circle_y_speed
+	stx     _circle_y_speed+1
+;
+; }
+;
+	rts
 
 .endproc
 
@@ -538,9 +645,13 @@ L016B:	jsr     decsp2
 ;
 	jsr     _ppu_on_all
 ;
+; initialize();
+;
+	jsr     _initialize
+;
 ; ppu_wait_nmi(); // wait till beginning of the frame
 ;
-L011F:	jsr     _ppu_wait_nmi
+L0120:	jsr     _ppu_wait_nmi
 ;
 ; oam_clear();
 ;
@@ -558,10 +669,11 @@ L011F:	jsr     _ppu_wait_nmi
 	jsr     _zap_shoot
 	sta     _pad2_zapper
 ;
-; if (circle_active)
+; if (game_mode == MODE_GAME)
 ;
-	lda     _circle_active
-	beq     L012A
+	lda     _game_mode
+	cmp     #$01
+	bne     L012B
 ;
 ; move_circle();
 ;
@@ -574,9 +686,9 @@ L011F:	jsr     _ppu_wait_nmi
 ; if ((pad2_zapper) && (zapper_ready))
 ;
 	lda     _pad2_zapper
-	beq     L011F
+	beq     L0120
 	lda     _zapper_ready
-	beq     L011F
+	beq     L0120
 ;
 ; sfx_play(0, 0);
 ;
@@ -616,26 +728,11 @@ L011F:	jsr     _ppu_wait_nmi
 	jsr     _zap_read
 	sta     _hit_detected
 ;
-; if (hit_detected)
-;
-	lda     _hit_detected
-	beq     L011F
-;
-; circle_active = 0;
-;
-	lda     #$00
-	sta     _circle_active
-;
-; circle_wait = 20; // to time the next spawn
-;
-	lda     #$14
-	sta     _circle_wait
-;
 ; else if (circle_wait)
 ;
-	jmp     L011F
-L012A:	lda     _circle_wait
-	beq     L011F
+	jmp     L0120
+L012B:	lda     _circle_wait
+	beq     L0120
 ;
 ; --circle_wait;
 ;
@@ -643,7 +740,7 @@ L012A:	lda     _circle_wait
 ;
 ; while (1)
 ;
-	jmp     L011F
+	jmp     L0120
 
 .endproc
 

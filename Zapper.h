@@ -6,7 +6,16 @@ unsigned char zapper_ready; //wait till it's 0
 unsigned char hit_detected;
 
 
-unsigned char circle_active;
+unsigned char game_mode;
+
+enum{
+  MODE_TITLE,
+  MODE_GAME,
+  MODE_END
+};
+
+unsigned char circle_y_direction;
+unsigned char circle_x_direction;
 unsigned char circle_color;
 unsigned int circle_x;
 unsigned int circle_y;
@@ -23,4 +32,5 @@ unsigned char temp2;
 // PROTOTYPES
 void move_circle(void);
 void draw_circle(void);
+void initialize(void);
 
