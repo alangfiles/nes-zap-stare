@@ -27,7 +27,7 @@ crt0.o: crt0.s AlphaZ.chr MUSIC/SFX.s
 $(NAME).o: $(NAME).s
 	$(CA65) $(NAME).s -g
 
-$(NAME).s: $(NAME).c Sprites.h Zapper.h NES_ST/Zap_Test.h
+$(NAME).s: $(NAME).c Sprites.h Zapper.h
 	$(CC65) -Oirs $(NAME).c --add-source
 
 clean:

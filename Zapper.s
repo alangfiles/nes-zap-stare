@@ -27,10 +27,6 @@
 	.export		_pad2_zapper
 	.export		_zapper_ready
 	.export		_hit_detected
-	.export		_score1000
-	.export		_score100
-	.export		_score10
-	.export		_score1
 	.export		_circle_active
 	.export		_circle_color
 	.export		_circle_x
@@ -328,19 +324,12 @@ _pal2:
 
 .segment	"BSS"
 
+.segment	"ZEROPAGE"
 _pad2_zapper:
 	.res	1,$00
 _zapper_ready:
 	.res	1,$00
 _hit_detected:
-	.res	1,$00
-_score1000:
-	.res	1,$00
-_score100:
-	.res	1,$00
-_score10:
-	.res	1,$00
-_score1:
 	.res	1,$00
 _circle_active:
 	.res	1,$00
