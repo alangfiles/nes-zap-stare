@@ -1,5 +1,7 @@
 //variables
 
+#define MAX_SPEED 0xF000
+
 #pragma bss-name(push, "ZEROPAGE")
 unsigned char pad2_zapper;
 unsigned char zapper_ready; //wait till it's 0
@@ -10,6 +12,7 @@ unsigned char game_mode;
 
 enum{
   MODE_TITLE,
+  MODE_COUNTDOWN,
   MODE_GAME,
   MODE_END
 };
@@ -22,6 +25,8 @@ unsigned int circle_y;
 unsigned int circle_x_speed;
 unsigned int circle_y_speed;
 unsigned char circle_wait;
+
+unsigned char frame_counter;
 
 unsigned char temp1;
 unsigned char temp2;

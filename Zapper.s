@@ -16,15 +16,13 @@
 	.import		_ppu_wait_nmi
 	.import		_ppu_off
 	.import		_ppu_on_all
-	.import		_ppu_mask
 	.import		_oam_clear
 	.import		_oam_meta_spr
-	.import		_sfx_play
 	.import		_bank_spr
-	.import		_rand8
+	.import		_vram_adr
+	.import		_vram_put
 	.import		_set_vram_buffer
-	.import		_zap_shoot
-	.import		_zap_read
+	.import		_multi_vram_buffer_horz
 	.export		_pad2_zapper
 	.export		_zapper_ready
 	.export		_hit_detected
@@ -37,6 +35,7 @@
 	.export		_circle_x_speed
 	.export		_circle_y_speed
 	.export		_circle_wait
+	.export		_frame_counter
 	.export		_temp1
 	.export		_temp2
 	.export		_move_circle
@@ -325,6 +324,12 @@ _pal2:
 	.byte	$19
 	.byte	$29
 	.byte	$30
+L012A:
+	.byte	$50,$6F,$69,$6E,$74,$20,$7A,$61,$70,$70,$65,$72,$73,$20,$61,$74
+	.byte	$20,$63,$69,$72,$63,$6C,$65,$00
+L016C:
+	.byte	$20,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20
+	.byte	$20,$20,$20,$20,$20,$20,$20,$00
 
 .segment	"BSS"
 
@@ -353,6 +358,8 @@ _circle_y_speed:
 	.res	2,$00
 _circle_wait:
 	.res	1,$00
+_frame_counter:
+	.res	1,$00
 _temp1:
 	.res	1,$00
 _temp2:
@@ -369,27 +376,22 @@ _temp2:
 .segment	"CODE"
 
 ;
-; if (circle_x >= 0xB500)
+; if (high_byte(circle_x) >= 180)
 ;
-	lda     _circle_x
-	cmp     #$00
 	lda     _circle_x+1
-	sbc     #$B5
-	bcc     L015F
+	cmp     #$B4
+	bcc     L01BC
 ;
 ; circle_x_direction = 1;
 ;
 	lda     #$01
 	sta     _circle_x_direction
 ;
-; if (circle_x <= 0x0100)
+; if (high_byte(circle_x) <= 10)
 ;
-L015F:	lda     _circle_x+1
-	cmp     #$01
-	bne     L0165
-	lda     _circle_x
-	cmp     #$01
-L0165:	bcs     L0163
+L01BC:	lda     _circle_x+1
+	cmp     #$0B
+	bcs     L0192
 ;
 ; circle_x_direction = 0;
 ;
@@ -398,54 +400,49 @@ L0165:	bcs     L0163
 ;
 ; if (circle_x_direction)
 ;
-L0163:	lda     _circle_x_direction
-	beq     L0168
-;
-; circle_x += circle_x_speed;
-;
-	lda     _circle_x_speed
-	clc
-	adc     _circle_x
-	sta     _circle_x
-	lda     _circle_x_speed+1
-;
-; else
-;
-	jmp     L018E
+L0192:	lda     _circle_x_direction
+	beq     L0197
 ;
 ; circle_x -= circle_x_speed;
 ;
-L0168:	lda     _circle_x_speed
+	lda     _circle_x_speed
 	eor     #$FF
 	sec
 	adc     _circle_x
 	sta     _circle_x
 	lda     _circle_x_speed+1
 	eor     #$FF
-L018E:	adc     _circle_x+1
+;
+; else
+;
+	jmp     L01C0
+;
+; circle_x += circle_x_speed;
+;
+L0197:	lda     _circle_x_speed
+	clc
+	adc     _circle_x
+	sta     _circle_x
+	lda     _circle_x_speed+1
+L01C0:	adc     _circle_x+1
 	sta     _circle_x+1
 ;
-; if (circle_y >= 0x9000)
+; if (high_byte(circle_y) >= 170)
 ;
-	lda     _circle_y
-	cmp     #$00
 	lda     _circle_y+1
-	sbc     #$90
-	bcc     L016F
+	cmp     #$AA
+	bcc     L01BD
 ;
 ; circle_y_direction = 1;
 ;
 	lda     #$01
 	sta     _circle_y_direction
 ;
-; if (circle_y <= 0x0100)
+; if (high_byte(circle_y) <= 10)
 ;
-L016F:	lda     _circle_y+1
-	cmp     #$01
-	bne     L0175
-	lda     _circle_y
-	cmp     #$01
-L0175:	bcs     L0173
+L01BD:	lda     _circle_y+1
+	cmp     #$0B
+	bcs     L01A3
 ;
 ; circle_y_direction = 0;
 ;
@@ -454,31 +451,31 @@ L0175:	bcs     L0173
 ;
 ; if (circle_y_direction)
 ;
-L0173:	lda     _circle_y_direction
-	beq     L0178
-;
-; circle_y += circle_y_speed;
-;
-	lda     _circle_y_speed
-	clc
-	adc     _circle_y
-	sta     _circle_y
-	lda     _circle_y_speed+1
-;
-; else
-;
-	jmp     L018F
+L01A3:	lda     _circle_y_direction
+	beq     L01A8
 ;
 ; circle_y -= circle_y_speed;
 ;
-L0178:	lda     _circle_y_speed
+	lda     _circle_y_speed
 	eor     #$FF
 	sec
 	adc     _circle_y
 	sta     _circle_y
 	lda     _circle_y_speed+1
 	eor     #$FF
-L018F:	adc     _circle_y+1
+;
+; else
+;
+	jmp     L01C1
+;
+; circle_y += circle_y_speed;
+;
+L01A8:	lda     _circle_y_speed
+	clc
+	adc     _circle_y
+	sta     _circle_y
+	lda     _circle_y_speed+1
+L01C1:	adc     _circle_y+1
 	sta     _circle_y+1
 ;
 ; }
@@ -534,9 +531,14 @@ L018F:	adc     _circle_y+1
 .segment	"CODE"
 
 ;
+; frame_counter = 0;
+;
+	lda     #$00
+	sta     _frame_counter
+;
 ; game_mode = MODE_GAME;
 ;
-	lda     #$01
+	lda     #$02
 	sta     _game_mode
 ;
 ; circle_color = (circle_color + 1) & 1; // 0 or 1
@@ -547,51 +549,26 @@ L018F:	adc     _circle_y+1
 	and     #$01
 	sta     _circle_color
 ;
-; temp1 = rand8();
+; circle_x = 0x6000;           // should give 0x4000-0xbf80
 ;
-	jsr     _rand8
-	sta     _temp1
-;
-; circle_x = (temp1 << 7) + 0x4000; // should give 0x4000-0xbf80
-;
-	ldx     #$00
-	lda     _temp1
-	jsr     aslax4
-	jsr     aslax3
-	sta     _circle_x
-	txa
-	clc
-	adc     #$40
-	sta     _circle_x+1
-;
-; circle_y = 0x7000;        // int
-;
-	ldx     #$70
+	ldx     #$60
 	lda     #$00
+	sta     _circle_x
+	stx     _circle_x+1
+;
+; circle_y = 0x6000;           // int
+;
 	sta     _circle_y
 	stx     _circle_y+1
 ;
-; temp1 = rand8();
+; circle_x_speed = 0x0100;
 ;
-	jsr     _rand8
-	sta     _temp1
-;
-; circle_x_speed = ((temp1 & 0x1f) - 0x0f) << 4;
-;
-	ldx     #$00
-	and     #$1F
-	sec
-	sbc     #$0F
-	bcs     L015B
-	dex
-L015B:	jsr     shlax4
+	ldx     #$01
 	sta     _circle_x_speed
 	stx     _circle_x_speed+1
 ;
-; circle_y_speed = 0xff00;
+; circle_y_speed = 0x0100;
 ;
-	ldx     #$FF
-	lda     #$00
 	sta     _circle_y_speed
 	stx     _circle_y_speed+1
 ;
@@ -649,31 +626,162 @@ L015B:	jsr     shlax4
 ;
 	jsr     _initialize
 ;
-; ppu_wait_nmi(); // wait till beginning of the frame
+; if (game_mode == MODE_TITLE)
 ;
-L0120:	jsr     _ppu_wait_nmi
+L01C3:	lda     _game_mode
+	bne     L01C4
+;
+; ppu_wait_nmi();
+;
+	jsr     _ppu_wait_nmi
+;
+; game_mode = MODE_COUNTDOWN;
+;
+	lda     #$01
+	sta     _game_mode
+;
+; multi_vram_buffer_horz("Point zappers at circle", 23, NTADR_A(4, 24));
+;
+	jsr     decsp3
+	lda     #<(L012A)
+	ldy     #$01
+	sta     (sp),y
+	iny
+	lda     #>(L012A)
+	sta     (sp),y
+	lda     #$17
+	ldy     #$00
+	sta     (sp),y
+	ldx     #$23
+	lda     #$04
+	jsr     _multi_vram_buffer_horz
+;
+; draw_circle();
+;
+	jsr     _draw_circle
+;
+; if (game_mode == MODE_COUNTDOWN)
+;
+L01C4:	lda     _game_mode
+	cmp     #$01
+	bne     L01C9
+;
+; ppu_wait_nmi();
+;
+	jsr     _ppu_wait_nmi
+;
+; ++frame_counter;
+;
+	inc     _frame_counter
+;
+; if (frame_counter == 1)
+;
+	lda     _frame_counter
+	cmp     #$01
+	bne     L01C5
+;
+; vram_adr(NTADR_A(16, 3));
+;
+	ldx     #$20
+	lda     #$70
+	jsr     _vram_adr
+;
+; vram_put('3');
+;
+	lda     #$33
+;
+; else if (frame_counter == 61)
+;
+	jmp     L01C2
+L01C5:	lda     _frame_counter
+	cmp     #$3D
+	bne     L01C6
+;
+; vram_adr(NTADR_A(16, 3));
+;
+	ldx     #$20
+	lda     #$70
+	jsr     _vram_adr
+;
+; vram_put('2');
+;
+	lda     #$32
+;
+; else if (frame_counter == 121)
+;
+	jmp     L01C2
+L01C6:	lda     _frame_counter
+	cmp     #$79
+	bne     L01C7
+;
+; vram_adr(NTADR_A(16, 3));
+;
+	ldx     #$20
+	lda     #$70
+	jsr     _vram_adr
+;
+; vram_put('1');
+;
+	lda     #$31
+;
+; else if (frame_counter == 181)
+;
+	jmp     L01C2
+L01C7:	lda     _frame_counter
+	cmp     #$B5
+	bne     L01C8
+;
+; vram_adr(NTADR_A(16, 3));
+;
+	ldx     #$20
+	lda     #$70
+	jsr     _vram_adr
+;
+; vram_put('0');
+;
+	lda     #$30
+L01C2:	jsr     _vram_put
+;
+; if (frame_counter == 241)
+;
+L01C8:	lda     _frame_counter
+	cmp     #$F1
+	bne     L01C9
+;
+; game_mode = MODE_GAME;
+;
+	lda     #$02
+	sta     _game_mode
+;
+; multi_vram_buffer_horz("                       ", 23, NTADR_A(4, 24));
+;
+	jsr     decsp3
+	lda     #<(L016C)
+	ldy     #$01
+	sta     (sp),y
+	iny
+	lda     #>(L016C)
+	sta     (sp),y
+	lda     #$17
+	ldy     #$00
+	sta     (sp),y
+	ldx     #$23
+	lda     #$04
+	jsr     _multi_vram_buffer_horz
+;
+; if (game_mode == MODE_GAME)
+;
+L01C9:	lda     _game_mode
+	cmp     #$02
+	jne     L01C3
+;
+; ppu_wait_nmi();
+;
+	jsr     _ppu_wait_nmi
 ;
 ; oam_clear();
 ;
 	jsr     _oam_clear
-;
-; zapper_ready = pad2_zapper ^ 1; // XOR last frame, make sure not held down still
-;
-	lda     _pad2_zapper
-	eor     #$01
-	sta     _zapper_ready
-;
-; pad2_zapper = zap_shoot(1); // controller slot 2
-;
-	lda     #$01
-	jsr     _zap_shoot
-	sta     _pad2_zapper
-;
-; if (game_mode == MODE_GAME)
-;
-	lda     _game_mode
-	cmp     #$01
-	bne     L012B
 ;
 ; move_circle();
 ;
@@ -683,64 +791,9 @@ L0120:	jsr     _ppu_wait_nmi
 ;
 	jsr     _draw_circle
 ;
-; if ((pad2_zapper) && (zapper_ready))
-;
-	lda     _pad2_zapper
-	beq     L0120
-	lda     _zapper_ready
-	beq     L0120
-;
-; sfx_play(0, 0);
-;
-	lda     #$00
-	jsr     pusha
-	jsr     _sfx_play
-;
-; oam_clear();
-;
-	jsr     _oam_clear
-;
-; ppu_mask(0x16); // BG off, won't happen till NEXT frame
-;
-	lda     #$16
-	jsr     _ppu_mask
-;
-; ppu_wait_nmi(); // wait till the top of the next frame
-;
-	jsr     _ppu_wait_nmi
-;
-; oam_clear();  // clear the NEXT frame
-;
-	jsr     _oam_clear
-;
-; draw_circle(); // draw a star on the NEXT frame
-;
-	jsr     _draw_circle
-;
-; ppu_mask(0x1e); // bg on, won't happen till NEXT frame
-;
-	lda     #$1E
-	jsr     _ppu_mask
-;
-; hit_detected = zap_read(1); // look for light in zapper, port 2
-;
-	lda     #$01
-	jsr     _zap_read
-	sta     _hit_detected
-;
-; else if (circle_wait)
-;
-	jmp     L0120
-L012B:	lda     _circle_wait
-	beq     L0120
-;
-; --circle_wait;
-;
-	dec     _circle_wait
-;
 ; while (1)
 ;
-	jmp     L0120
+	jmp     L01C3
 
 .endproc
 
