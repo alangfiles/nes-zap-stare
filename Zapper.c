@@ -115,6 +115,7 @@ void main(void)
 
 		if (game_mode == MODE_GAME)
 		{
+			++frame_counter;
 			ppu_wait_nmi();
 			oam_clear();
 			move_circle();
@@ -157,14 +158,12 @@ void initialize(void)
 
 void move_circle(void)
 {
-	// circle_y_speed -= 0x0001;
+	// update speed for x movement
 
-	// if (circle_x_speed <= MAX_SPEED)
-	// {
-	// 	circle_x_speed = MAX_SPEED;
-
-	// 	// circle_x_speed += 0x0001; // always increases x speed
-	// }
+	if (circle_x_speed <= MAX_SPEED && frame_counter == 0)
+	{
+		circle_x_speed += 0x0010; // always increases x speed
+	}
 
 	if (high_byte(circle_x) >= 180)
 	{

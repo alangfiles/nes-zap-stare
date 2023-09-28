@@ -1,6 +1,6 @@
 //variables
 
-#define MAX_SPEED 0xF000
+#define MAX_SPEED 0x0F00
 
 #pragma bss-name(push, "ZEROPAGE")
 unsigned char pad2_zapper;

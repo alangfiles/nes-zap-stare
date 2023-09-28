@@ -376,11 +376,31 @@ _temp2:
 .segment	"CODE"
 
 ;
+; if (circle_x_speed <= MAX_SPEED && frame_counter == 0)
+;
+	lda     _circle_x_speed+1
+	cmp     #$0F
+	bne     L0190
+	lda     _circle_x_speed
+	cmp     #$01
+L0190:	bcs     L01C6
+	lda     _frame_counter
+	bne     L01C6
+;
+; circle_x_speed += 0x0010; // always increases x speed
+;
+	lda     #$10
+	clc
+	adc     _circle_x_speed
+	sta     _circle_x_speed
+	bcc     L01C6
+	inc     _circle_x_speed+1
+;
 ; if (high_byte(circle_x) >= 180)
 ;
-	lda     _circle_x+1
+L01C6:	lda     _circle_x+1
 	cmp     #$B4
-	bcc     L01BC
+	bcc     L01C7
 ;
 ; circle_x_direction = 1;
 ;
@@ -389,9 +409,9 @@ _temp2:
 ;
 ; if (high_byte(circle_x) <= 10)
 ;
-L01BC:	lda     _circle_x+1
+L01C7:	lda     _circle_x+1
 	cmp     #$0B
-	bcs     L0192
+	bcs     L019B
 ;
 ; circle_x_direction = 0;
 ;
@@ -400,8 +420,8 @@ L01BC:	lda     _circle_x+1
 ;
 ; if (circle_x_direction)
 ;
-L0192:	lda     _circle_x_direction
-	beq     L0197
+L019B:	lda     _circle_x_direction
+	beq     L01A0
 ;
 ; circle_x -= circle_x_speed;
 ;
@@ -415,23 +435,23 @@ L0192:	lda     _circle_x_direction
 ;
 ; else
 ;
-	jmp     L01C0
+	jmp     L01CB
 ;
 ; circle_x += circle_x_speed;
 ;
-L0197:	lda     _circle_x_speed
+L01A0:	lda     _circle_x_speed
 	clc
 	adc     _circle_x
 	sta     _circle_x
 	lda     _circle_x_speed+1
-L01C0:	adc     _circle_x+1
+L01CB:	adc     _circle_x+1
 	sta     _circle_x+1
 ;
 ; if (high_byte(circle_y) >= 170)
 ;
 	lda     _circle_y+1
 	cmp     #$AA
-	bcc     L01BD
+	bcc     L01C8
 ;
 ; circle_y_direction = 1;
 ;
@@ -440,9 +460,9 @@ L01C0:	adc     _circle_x+1
 ;
 ; if (high_byte(circle_y) <= 10)
 ;
-L01BD:	lda     _circle_y+1
+L01C8:	lda     _circle_y+1
 	cmp     #$0B
-	bcs     L01A3
+	bcs     L01AC
 ;
 ; circle_y_direction = 0;
 ;
@@ -451,8 +471,8 @@ L01BD:	lda     _circle_y+1
 ;
 ; if (circle_y_direction)
 ;
-L01A3:	lda     _circle_y_direction
-	beq     L01A8
+L01AC:	lda     _circle_y_direction
+	beq     L01B1
 ;
 ; circle_y -= circle_y_speed;
 ;
@@ -466,16 +486,16 @@ L01A3:	lda     _circle_y_direction
 ;
 ; else
 ;
-	jmp     L01C1
+	jmp     L01CC
 ;
 ; circle_y += circle_y_speed;
 ;
-L01A8:	lda     _circle_y_speed
+L01B1:	lda     _circle_y_speed
 	clc
 	adc     _circle_y
 	sta     _circle_y
 	lda     _circle_y_speed+1
-L01C1:	adc     _circle_y+1
+L01CC:	adc     _circle_y+1
 	sta     _circle_y+1
 ;
 ; }
@@ -628,8 +648,8 @@ L01C1:	adc     _circle_y+1
 ;
 ; if (game_mode == MODE_TITLE)
 ;
-L01C3:	lda     _game_mode
-	bne     L01C4
+L01CE:	lda     _game_mode
+	bne     L01CF
 ;
 ; ppu_wait_nmi();
 ;
@@ -662,9 +682,9 @@ L01C3:	lda     _game_mode
 ;
 ; if (game_mode == MODE_COUNTDOWN)
 ;
-L01C4:	lda     _game_mode
+L01CF:	lda     _game_mode
 	cmp     #$01
-	bne     L01C9
+	bne     L01D4
 ;
 ; ppu_wait_nmi();
 ;
@@ -678,7 +698,7 @@ L01C4:	lda     _game_mode
 ;
 	lda     _frame_counter
 	cmp     #$01
-	bne     L01C5
+	bne     L01D0
 ;
 ; vram_adr(NTADR_A(16, 3));
 ;
@@ -692,10 +712,10 @@ L01C4:	lda     _game_mode
 ;
 ; else if (frame_counter == 61)
 ;
-	jmp     L01C2
-L01C5:	lda     _frame_counter
+	jmp     L01CD
+L01D0:	lda     _frame_counter
 	cmp     #$3D
-	bne     L01C6
+	bne     L01D1
 ;
 ; vram_adr(NTADR_A(16, 3));
 ;
@@ -709,10 +729,10 @@ L01C5:	lda     _frame_counter
 ;
 ; else if (frame_counter == 121)
 ;
-	jmp     L01C2
-L01C6:	lda     _frame_counter
+	jmp     L01CD
+L01D1:	lda     _frame_counter
 	cmp     #$79
-	bne     L01C7
+	bne     L01D2
 ;
 ; vram_adr(NTADR_A(16, 3));
 ;
@@ -726,10 +746,10 @@ L01C6:	lda     _frame_counter
 ;
 ; else if (frame_counter == 181)
 ;
-	jmp     L01C2
-L01C7:	lda     _frame_counter
+	jmp     L01CD
+L01D2:	lda     _frame_counter
 	cmp     #$B5
-	bne     L01C8
+	bne     L01D3
 ;
 ; vram_adr(NTADR_A(16, 3));
 ;
@@ -740,13 +760,13 @@ L01C7:	lda     _frame_counter
 ; vram_put('0');
 ;
 	lda     #$30
-L01C2:	jsr     _vram_put
+L01CD:	jsr     _vram_put
 ;
 ; if (frame_counter == 241)
 ;
-L01C8:	lda     _frame_counter
+L01D3:	lda     _frame_counter
 	cmp     #$F1
-	bne     L01C9
+	bne     L01D4
 ;
 ; game_mode = MODE_GAME;
 ;
@@ -771,9 +791,13 @@ L01C8:	lda     _frame_counter
 ;
 ; if (game_mode == MODE_GAME)
 ;
-L01C9:	lda     _game_mode
+L01D4:	lda     _game_mode
 	cmp     #$02
-	jne     L01C3
+	jne     L01CE
+;
+; ++frame_counter;
+;
+	inc     _frame_counter
 ;
 ; ppu_wait_nmi();
 ;
@@ -793,7 +817,7 @@ L01C9:	lda     _game_mode
 ;
 ; while (1)
 ;
-	jmp     L01C3
+	jmp     L01CE
 
 .endproc
 
