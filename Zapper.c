@@ -114,7 +114,7 @@ void main(void)
 
 			read_light();
 
-			if (winner == 0)
+			if (winner != 0)
 			{
 				initialize_mode_end();
 			}
