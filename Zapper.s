@@ -23,9 +23,12 @@
 	.import		_vram_put
 	.import		_set_vram_buffer
 	.import		_multi_vram_buffer_horz
+	.import		_zap_read
 	.export		_pad2_zapper
 	.export		_zapper_ready
-	.export		_hit_detected
+	.export		_zapper1_on_target
+	.export		_zapper2_on_target
+	.export		_winner
 	.export		_game_mode
 	.export		_circle_y_direction
 	.export		_circle_x_direction
@@ -40,7 +43,10 @@
 	.export		_temp2
 	.export		_move_circle
 	.export		_draw_circle
+	.export		_read_light
+	.export		_check_for_winner
 	.export		_initialize
+	.export		_initialize_mode_end
 	.export		_GiantWhiteCircle
 	.export		_pal1
 	.export		_pal2
@@ -324,12 +330,16 @@ _pal2:
 	.byte	$19
 	.byte	$29
 	.byte	$30
+L0176:
+	.byte	$20,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20
+	.byte	$20,$20,$20,$20,$20,$20,$20,$00
 L012A:
 	.byte	$50,$6F,$69,$6E,$74,$20,$7A,$61,$70,$70,$65,$72,$73,$20,$61,$74
 	.byte	$20,$63,$69,$72,$63,$6C,$65,$00
-L016C:
-	.byte	$20,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20
-	.byte	$20,$20,$20,$20,$20,$20,$20,$00
+L0197:
+	.byte	$50,$4C,$41,$59,$45,$52,$20,$31,$20,$57,$4F,$4E,$21,$00
+L01A2:
+	.byte	$50,$4C,$41,$59,$45,$52,$20,$32,$20,$57,$4F,$4E,$21,$00
 
 .segment	"BSS"
 
@@ -338,7 +348,11 @@ _pad2_zapper:
 	.res	1,$00
 _zapper_ready:
 	.res	1,$00
-_hit_detected:
+_zapper1_on_target:
+	.res	1,$00
+_zapper2_on_target:
+	.res	1,$00
+_winner:
 	.res	1,$00
 _game_mode:
 	.res	1,$00
@@ -380,12 +394,12 @@ _temp2:
 ;
 	lda     _circle_x_speed+1
 	cmp     #$0F
-	bne     L0190
+	bne     L01E3
 	lda     _circle_x_speed
 	cmp     #$01
-L0190:	bcs     L01C6
+L01E3:	bcs     L0219
 	lda     _frame_counter
-	bne     L01C6
+	bne     L0219
 ;
 ; circle_x_speed += 0x0010; // always increases x speed
 ;
@@ -393,14 +407,14 @@ L0190:	bcs     L01C6
 	clc
 	adc     _circle_x_speed
 	sta     _circle_x_speed
-	bcc     L01C6
+	bcc     L0219
 	inc     _circle_x_speed+1
 ;
 ; if (high_byte(circle_x) >= 180)
 ;
-L01C6:	lda     _circle_x+1
+L0219:	lda     _circle_x+1
 	cmp     #$B4
-	bcc     L01C7
+	bcc     L021A
 ;
 ; circle_x_direction = 1;
 ;
@@ -409,9 +423,9 @@ L01C6:	lda     _circle_x+1
 ;
 ; if (high_byte(circle_x) <= 10)
 ;
-L01C7:	lda     _circle_x+1
+L021A:	lda     _circle_x+1
 	cmp     #$0B
-	bcs     L019B
+	bcs     L01EE
 ;
 ; circle_x_direction = 0;
 ;
@@ -420,8 +434,8 @@ L01C7:	lda     _circle_x+1
 ;
 ; if (circle_x_direction)
 ;
-L019B:	lda     _circle_x_direction
-	beq     L01A0
+L01EE:	lda     _circle_x_direction
+	beq     L01F3
 ;
 ; circle_x -= circle_x_speed;
 ;
@@ -435,23 +449,23 @@ L019B:	lda     _circle_x_direction
 ;
 ; else
 ;
-	jmp     L01CB
+	jmp     L021E
 ;
 ; circle_x += circle_x_speed;
 ;
-L01A0:	lda     _circle_x_speed
+L01F3:	lda     _circle_x_speed
 	clc
 	adc     _circle_x
 	sta     _circle_x
 	lda     _circle_x_speed+1
-L01CB:	adc     _circle_x+1
+L021E:	adc     _circle_x+1
 	sta     _circle_x+1
 ;
 ; if (high_byte(circle_y) >= 170)
 ;
 	lda     _circle_y+1
 	cmp     #$AA
-	bcc     L01C8
+	bcc     L021B
 ;
 ; circle_y_direction = 1;
 ;
@@ -460,9 +474,9 @@ L01CB:	adc     _circle_x+1
 ;
 ; if (high_byte(circle_y) <= 10)
 ;
-L01C8:	lda     _circle_y+1
+L021B:	lda     _circle_y+1
 	cmp     #$0B
-	bcs     L01AC
+	bcs     L01FF
 ;
 ; circle_y_direction = 0;
 ;
@@ -471,8 +485,8 @@ L01C8:	lda     _circle_y+1
 ;
 ; if (circle_y_direction)
 ;
-L01AC:	lda     _circle_y_direction
-	beq     L01B1
+L01FF:	lda     _circle_y_direction
+	beq     L0204
 ;
 ; circle_y -= circle_y_speed;
 ;
@@ -486,16 +500,16 @@ L01AC:	lda     _circle_y_direction
 ;
 ; else
 ;
-	jmp     L01CC
+	jmp     L021F
 ;
 ; circle_y += circle_y_speed;
 ;
-L01B1:	lda     _circle_y_speed
+L0204:	lda     _circle_y_speed
 	clc
 	adc     _circle_y
 	sta     _circle_y
 	lda     _circle_y_speed+1
-L01CC:	adc     _circle_y+1
+L021F:	adc     _circle_y+1
 	sta     _circle_y+1
 ;
 ; }
@@ -541,6 +555,100 @@ L01CC:	adc     _circle_y+1
 .endproc
 
 ; ---------------------------------------------------------------
+; void __near__ read_light (void)
+; ---------------------------------------------------------------
+
+.segment	"CODE"
+
+.proc	_read_light: near
+
+.segment	"CODE"
+
+;
+; zapper1_on_target = zap_read(0);
+;
+	lda     #$00
+	jsr     _zap_read
+	sta     _zapper1_on_target
+;
+; zapper2_on_target = zap_read(1);
+;
+	lda     #$01
+	jsr     _zap_read
+	sta     _zapper2_on_target
+;
+; }
+;
+	rts
+
+.endproc
+
+; ---------------------------------------------------------------
+; void __near__ check_for_winner (void)
+; ---------------------------------------------------------------
+
+.segment	"CODE"
+
+.proc	_check_for_winner: near
+
+.segment	"CODE"
+
+;
+; if (zapper1_on_target == 1 && zapper2_on_target == 1)
+;
+	lda     _zapper1_on_target
+	cmp     #$01
+	bne     L0224
+	lda     _zapper2_on_target
+	cmp     #$01
+	bne     L0224
+;
+; return;
+;
+	rts
+;
+; if (zapper1_on_target == 0 && zapper2_on_target == 0)
+;
+L0224:	lda     _zapper1_on_target
+	bne     L0228
+	lda     _zapper2_on_target
+	bne     L0228
+;
+; if (frame_counter % 2 == 0)
+;
+	lda     _frame_counter
+	and     #$01
+	bne     L0229
+;
+; winner = 1;
+;
+	lda     #$01
+;
+; else
+;
+	jmp     L0220
+;
+; if (zapper1_on_target == 1)
+;
+L0228:	lda     _zapper1_on_target
+	cmp     #$01
+;
+; else
+;
+	beq     L0220
+;
+; winner = 2;
+;
+L0229:	lda     #$02
+L0220:	sta     _winner
+;
+; }
+;
+	rts
+
+.endproc
+
+; ---------------------------------------------------------------
 ; void __near__ initialize (void)
 ; ---------------------------------------------------------------
 
@@ -556,9 +664,8 @@ L01CC:	adc     _circle_y+1
 	lda     #$00
 	sta     _frame_counter
 ;
-; game_mode = MODE_GAME;
+; game_mode = MODE_TITLE;
 ;
-	lda     #$02
 	sta     _game_mode
 ;
 ; circle_color = (circle_color + 1) & 1; // 0 or 1
@@ -592,9 +699,78 @@ L01CC:	adc     _circle_y+1
 	sta     _circle_y_speed
 	stx     _circle_y_speed+1
 ;
+; winner = 0;
+;
+	sta     _winner
+;
 ; }
 ;
 	rts
+
+.endproc
+
+; ---------------------------------------------------------------
+; void __near__ initialize_mode_end (void)
+; ---------------------------------------------------------------
+
+.segment	"CODE"
+
+.proc	_initialize_mode_end: near
+
+.segment	"CODE"
+
+;
+; game_mode = MODE_END;
+;
+	lda     #$03
+	sta     _game_mode
+;
+; ppu_off();
+;
+	jsr     _ppu_off
+;
+; oam_clear();
+;
+	jsr     _oam_clear
+;
+; if (winner == 1)
+;
+	lda     _winner
+	cmp     #$01
+	bne     L0194
+;
+; multi_vram_buffer_horz("PLAYER 1 WON!", 23, NTADR_A(8, 12));
+;
+	jsr     decsp3
+	lda     #<(L0197)
+	ldy     #$01
+	sta     (sp),y
+	iny
+	lda     #>(L0197)
+;
+; else
+;
+	jmp     L0230
+;
+; multi_vram_buffer_horz("PLAYER 2 WON!", 23, NTADR_A(8, 12));
+;
+L0194:	jsr     decsp3
+	lda     #<(L01A2)
+	ldy     #$01
+	sta     (sp),y
+	iny
+	lda     #>(L01A2)
+L0230:	sta     (sp),y
+	lda     #$17
+	ldy     #$00
+	sta     (sp),y
+	ldx     #$21
+	lda     #$88
+	jsr     _multi_vram_buffer_horz
+;
+; ppu_on_all();
+;
+	jmp     _ppu_on_all
 
 .endproc
 
@@ -648,8 +824,8 @@ L01CC:	adc     _circle_y+1
 ;
 ; if (game_mode == MODE_TITLE)
 ;
-L01CE:	lda     _game_mode
-	bne     L01CF
+L0232:	lda     _game_mode
+	bne     L0233
 ;
 ; ppu_wait_nmi();
 ;
@@ -680,11 +856,12 @@ L01CE:	lda     _game_mode
 ;
 	jsr     _draw_circle
 ;
-; if (game_mode == MODE_COUNTDOWN)
+; else if (game_mode == MODE_COUNTDOWN)
 ;
-L01CF:	lda     _game_mode
+	jmp     L0232
+L0233:	lda     _game_mode
 	cmp     #$01
-	bne     L01D4
+	jne     L0238
 ;
 ; ppu_wait_nmi();
 ;
@@ -698,7 +875,7 @@ L01CF:	lda     _game_mode
 ;
 	lda     _frame_counter
 	cmp     #$01
-	bne     L01D0
+	bne     L0234
 ;
 ; vram_adr(NTADR_A(16, 3));
 ;
@@ -712,10 +889,10 @@ L01CF:	lda     _game_mode
 ;
 ; else if (frame_counter == 61)
 ;
-	jmp     L01CD
-L01D0:	lda     _frame_counter
+	jmp     L0231
+L0234:	lda     _frame_counter
 	cmp     #$3D
-	bne     L01D1
+	bne     L0235
 ;
 ; vram_adr(NTADR_A(16, 3));
 ;
@@ -729,10 +906,10 @@ L01D0:	lda     _frame_counter
 ;
 ; else if (frame_counter == 121)
 ;
-	jmp     L01CD
-L01D1:	lda     _frame_counter
+	jmp     L0231
+L0235:	lda     _frame_counter
 	cmp     #$79
-	bne     L01D2
+	bne     L0236
 ;
 ; vram_adr(NTADR_A(16, 3));
 ;
@@ -746,10 +923,10 @@ L01D1:	lda     _frame_counter
 ;
 ; else if (frame_counter == 181)
 ;
-	jmp     L01CD
-L01D2:	lda     _frame_counter
+	jmp     L0231
+L0236:	lda     _frame_counter
 	cmp     #$B5
-	bne     L01D3
+	bne     L0237
 ;
 ; vram_adr(NTADR_A(16, 3));
 ;
@@ -760,13 +937,24 @@ L01D2:	lda     _frame_counter
 ; vram_put('0');
 ;
 	lda     #$30
-L01CD:	jsr     _vram_put
+L0231:	jsr     _vram_put
 ;
 ; if (frame_counter == 241)
 ;
-L01D3:	lda     _frame_counter
+L0237:	lda     _frame_counter
 	cmp     #$F1
-	bne     L01D4
+	jne     L0232
+;
+; vram_adr(NTADR_A(16, 3));
+;
+	ldx     #$20
+	lda     #$70
+	jsr     _vram_adr
+;
+; vram_put(' ');
+;
+	lda     #$20
+	jsr     _vram_put
 ;
 ; game_mode = MODE_GAME;
 ;
@@ -776,11 +964,11 @@ L01D3:	lda     _frame_counter
 ; multi_vram_buffer_horz("                       ", 23, NTADR_A(4, 24));
 ;
 	jsr     decsp3
-	lda     #<(L016C)
+	lda     #<(L0176)
 	ldy     #$01
 	sta     (sp),y
 	iny
-	lda     #>(L016C)
+	lda     #>(L0176)
 	sta     (sp),y
 	lda     #$17
 	ldy     #$00
@@ -789,11 +977,12 @@ L01D3:	lda     _frame_counter
 	lda     #$04
 	jsr     _multi_vram_buffer_horz
 ;
-; if (game_mode == MODE_GAME)
+; else if (game_mode == MODE_GAME)
 ;
-L01D4:	lda     _game_mode
+	jmp     L0232
+L0238:	lda     _game_mode
 	cmp     #$02
-	jne     L01CE
+	bne     L0239
 ;
 ; ++frame_counter;
 ;
@@ -815,9 +1004,33 @@ L01D4:	lda     _game_mode
 ;
 	jsr     _draw_circle
 ;
-; while (1)
+; read_light();
 ;
-	jmp     L01CE
+	jsr     _read_light
+;
+; if (winner == 0)
+;
+	lda     _winner
+	jne     L0232
+;
+; initialize_mode_end();
+;
+	jsr     _initialize_mode_end
+;
+; else if (game_mode == MODE_END)
+;
+	jmp     L0232
+L0239:	lda     _game_mode
+	cmp     #$03
+	jne     L0232
+;
+; ppu_wait_nmi();
+;
+	jsr     _ppu_wait_nmi
+;
+; while (1) // main loop
+;
+	jmp     L0232
 
 .endproc
 

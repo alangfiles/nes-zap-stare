@@ -5,7 +5,9 @@
 #pragma bss-name(push, "ZEROPAGE")
 unsigned char pad2_zapper;
 unsigned char zapper_ready; //wait till it's 0
-unsigned char hit_detected;
+unsigned char zapper1_on_target;
+unsigned char zapper2_on_target;
+unsigned char winner;
 
 
 unsigned char game_mode;
@@ -37,5 +39,8 @@ unsigned char temp2;
 // PROTOTYPES
 void move_circle(void);
 void draw_circle(void);
+void read_light(void);
+void check_for_winner(void);
 void initialize(void);
+void initialize_mode_end(void);
 

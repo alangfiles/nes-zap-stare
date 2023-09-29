@@ -54,19 +54,8 @@ void main(void)
 
 	ppu_on_all(); // turn on screen
 	initialize();
-	while (1)
+	while (1) // main loop
 	{
-		// game mode title
-		//  wait for both players to pull trigger
-		// game mode game
-		//  ball starts in middle, then starts to move
-		//  game mode gameover
-		//  shows the name of the winner
-		//  both players press to start again
-		// zapper_ready = pad2_zapper ^ 1; // XOR last frame, make sure not held down still
-
-		// // is trigger pulled?
-		// pad2_zapper = zap_shoot(1); // controller slot 2
 
 		if (game_mode == MODE_TITLE)
 		{
@@ -77,7 +66,7 @@ void main(void)
 			multi_vram_buffer_horz("Point zappers at circle", 23, NTADR_A(4, 24));
 			draw_circle();
 		}
-		if (game_mode == MODE_COUNTDOWN)
+		else if (game_mode == MODE_COUNTDOWN)
 		{
 			ppu_wait_nmi();
 			++frame_counter;
@@ -108,39 +97,93 @@ void main(void)
 
 			if (frame_counter == 241)
 			{
+				vram_adr(NTADR_A(16, 3));
+				vram_put(' ');
 				game_mode = MODE_GAME;
 				multi_vram_buffer_horz("                       ", 23, NTADR_A(4, 24));
 			}
 		}
 
-		if (game_mode == MODE_GAME)
+		else if (game_mode == MODE_GAME)
 		{
 			++frame_counter;
 			ppu_wait_nmi();
 			oam_clear();
 			move_circle();
 			draw_circle();
-			// if ((pad2_zapper) && (zapper_ready))
-			// {
 
-			// 	// trigger pulled, play bang sound
-			// 	sfx_play(0, 0);
+			read_light();
 
-			// 	// bg off, project white boxes
-			// 	oam_clear();
-			// 	ppu_mask(0x16); // BG off, won't happen till NEXT frame
+			if (winner == 0)
+			{
+				initialize_mode_end();
+			}
+		}
+		else if (game_mode == MODE_END)
+		{
+			ppu_wait_nmi();
+		}
+	}
+}
 
-			// 	ppu_wait_nmi(); // wait till the top of the next frame
-			// 	// this frame will display no BG and a white box
+void initialize_mode_end(void)
+{
+	game_mode = MODE_END;
+	ppu_off();
+	oam_clear();
 
-			// 	oam_clear();		// clear the NEXT frame
-			// 	draw_circle();	// draw a star on the NEXT frame
-			// 	ppu_mask(0x1e); // bg on, won't happen till NEXT frame
+	if (winner == 1)
+	{
+		multi_vram_buffer_horz("PLAYER 1 WON!", 23, NTADR_A(8, 12));
+	}
+	else
+	{
+		multi_vram_buffer_horz("PLAYER 2 WON!", 23, NTADR_A(8, 12));
+	}
+	ppu_on_all();
+}
 
-			// 	hit_detected = zap_read(1); // look for light in zapper, port 2
+void read_light(void)
+{
+	zapper1_on_target = zap_read(0);
+	zapper2_on_target = zap_read(1);
+}
 
-			// 	// if hit failed, it should have already ran into the next nmi
-			// }
+void check_for_winner(void)
+{
+
+	if (zapper1_on_target == 1 && zapper2_on_target == 1)
+	{
+		// nobody's won, keep playing
+		return;
+	}
+	else
+	{
+		// somebody lost
+
+		if (zapper1_on_target == 0 && zapper2_on_target == 0)
+		{
+			// if they both lost on the same frame, then
+			// it goes to the frame counter
+			if (frame_counter % 2 == 0)
+			{
+				winner = 1;
+			}
+			else
+			{
+				winner = 2;
+			}
+		}
+		else
+		{
+			if (zapper1_on_target == 1)
+			{
+				winner = 1;
+			}
+			else
+			{
+				winner = 2;
+			}
 		}
 	}
 }
@@ -148,12 +191,13 @@ void main(void)
 void initialize(void)
 {
 	frame_counter = 0;
-	game_mode = MODE_GAME;
+	game_mode = MODE_TITLE;
 	circle_color = (circle_color + 1) & 1; // 0 or 1
 	circle_x = 0x6000;										 // should give 0x4000-0xbf80
 	circle_y = 0x6000;										 // int
 	circle_x_speed = 0x0100;
 	circle_y_speed = 0x0100;
+	winner = 0;
 }
 
 void move_circle(void)
