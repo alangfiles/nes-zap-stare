@@ -43,31 +43,31 @@ void main(void)
 
 	pal_bg(pal1);	 //	load the palette
 	pal_spr(pal2); //	load the palette
-
-	bank_spr(1); // sprites use the 2nd tileset
-
-	ppu_wait_nmi(); // wait
+	bank_spr(1);	 // sprites use the 2nd tileset
 
 	set_vram_buffer(); // points ppu update to vram_buffer, do this at least once
-	initialize_variables();
+	initialize_mode_title();
 	ppu_on_all(); // turn on screen
 
 	while (1) // main loop
 	{
+		// every loop, wait for ppu_nmi, and up the frame_counter
 		ppu_wait_nmi();
 		++frame_counter;
 
 		if (game_mode == MODE_TITLE)
 		{
-			// wait for both players to pull trigger?
+			// wait for both players to pull trigger
+			pad1_zapper = zap_shoot(0);
+			pad2_zapper = zap_shoot(1);
 
-			initialize_mode_countdown();
+			if (pad1_zapper && pad2_zapper)
+			{
+				initialize_mode_countdown();
+			}
 		}
 		else if (game_mode == MODE_COUNTDOWN)
 		{
-
-			// draw the circle, but don't move it.
-
 			// count down 3-2-1, then start the game
 
 			if (frame_counter == 1)
@@ -115,10 +115,25 @@ void main(void)
 			// wait then go back to game
 			if (frame_counter == 255)
 			{
-				initialize_variables();
+				initialize_mode_title();
 			}
 		}
 	}
+}
+
+void initialize_mode_title(void)
+{
+	frame_counter = 0;
+	game_mode = MODE_TITLE;
+	circle_x = 0x6000;
+	circle_y = 0x6000;
+	circle_x_speed = 0x0100;
+	circle_y_speed = 0x0100;
+	winner = 0;
+	zapper1_on_target = 1;
+	zapper2_on_target = 1;
+	draw_circle();
+	multi_vram_buffer_horz("Hold Triggers To Start", 22, NTADR_A(4, 24));
 }
 
 void initialize_mode_game(void)
@@ -131,9 +146,12 @@ void initialize_mode_game(void)
 
 void initialize_mode_countdown(void)
 {
+	ppu_off();
 	game_mode = MODE_COUNTDOWN;
 	multi_vram_buffer_horz("Point zappers at circle", 23, NTADR_A(4, 24));
 	draw_circle();
+	frame_counter = 0;
+	ppu_on_all();
 }
 
 void initialize_mode_end(void)
@@ -185,26 +203,12 @@ void check_for_winner(void)
 	}
 }
 
-void initialize_variables(void)
-{
-	frame_counter = 0;
-	game_mode = MODE_TITLE;
-	circle_x = 0x6000;
-	circle_y = 0x6000;
-	circle_x_speed = 0x0100;
-	circle_y_speed = 0x0100;
-	winner = 0;
-	zapper1_on_target = 1;
-	zapper2_on_target = 1;
-}
-
 void move_circle(void)
 {
 	// update speed for x movement
-
 	if (circle_x_speed <= MAX_SPEED && frame_counter == 0)
 	{
-		circle_x_speed += 0x0010; // always increases x speed
+		circle_x_speed += 0x0010; // always increases x speed up to max speed
 	}
 
 	if (high_byte(circle_x) >= 180)

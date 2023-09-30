@@ -1,6 +1,6 @@
 //variables
 
-#define MAX_SPEED 0x0F00
+#define MAX_SPEED 0x0F00 // 16 pixels a frame.
 
 #pragma bss-name(push, "ZEROPAGE")
 unsigned char pad1_zapper;
@@ -40,7 +40,7 @@ void move_circle(void);
 void draw_circle(void);
 void read_light(void);
 void check_for_winner(void);
-void initialize_variables(void);
+void initialize_mode_title(void);
 void initialize_mode_end(void);
 void initialize_mode_countdown(void);
 void initialize_mode_game(void);
