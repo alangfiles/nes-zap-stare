@@ -3,8 +3,8 @@
 #define MAX_SPEED 0x0F00
 
 #pragma bss-name(push, "ZEROPAGE")
+unsigned char pad1_zapper;
 unsigned char pad2_zapper;
-unsigned char zapper_ready; //wait till it's 0
 unsigned char zapper1_on_target;
 unsigned char zapper2_on_target;
 unsigned char winner;
@@ -21,7 +21,6 @@ enum{
 
 unsigned char circle_y_direction;
 unsigned char circle_x_direction;
-unsigned char circle_color;
 unsigned int circle_x;
 unsigned int circle_y;
 unsigned int circle_x_speed;
@@ -41,6 +40,7 @@ void move_circle(void);
 void draw_circle(void);
 void read_light(void);
 void check_for_winner(void);
-void initialize(void);
+void initialize_variables(void);
 void initialize_mode_end(void);
-
+void initialize_mode_countdown(void);
+void initialize_mode_game(void);

@@ -48,28 +48,24 @@ void main(void)
 
 	ppu_wait_nmi(); // wait
 
-	//	music_play(0); // silence
-
 	set_vram_buffer(); // points ppu update to vram_buffer, do this at least once
-
+	initialize_variables();
 	ppu_on_all(); // turn on screen
-	initialize();
+
 	while (1) // main loop
 	{
+		ppu_wait_nmi();
+		++frame_counter;
 
 		if (game_mode == MODE_TITLE)
 		{
-			ppu_wait_nmi();
 			// wait for both players to pull trigger?
 
-			game_mode = MODE_COUNTDOWN;
-			multi_vram_buffer_horz("Point zappers at circle", 23, NTADR_A(4, 24));
-			draw_circle();
+			initialize_mode_countdown();
 		}
 		else if (game_mode == MODE_COUNTDOWN)
 		{
-			ppu_wait_nmi();
-			++frame_counter;
+
 			// draw the circle, but don't move it.
 
 			// count down 3-2-1, then start the game
@@ -97,17 +93,12 @@ void main(void)
 
 			if (frame_counter == 241)
 			{
-				vram_adr(NTADR_A(16, 3));
-				vram_put(' ');
-				game_mode = MODE_GAME;
-				multi_vram_buffer_horz("                       ", 23, NTADR_A(4, 24));
+				initialize_mode_game();
 			}
 		}
 
 		else if (game_mode == MODE_GAME)
 		{
-			++frame_counter;
-			ppu_wait_nmi();
 			oam_clear();
 			move_circle();
 			draw_circle();
@@ -121,9 +112,28 @@ void main(void)
 		}
 		else if (game_mode == MODE_END)
 		{
-			ppu_wait_nmi();
+			// wait then go back to game
+			if (frame_counter == 255)
+			{
+				initialize_variables();
+			}
 		}
 	}
+}
+
+void initialize_mode_game(void)
+{
+	vram_adr(NTADR_A(16, 3));
+	vram_put(' ');
+	game_mode = MODE_GAME;
+	multi_vram_buffer_horz("                       ", 23, NTADR_A(4, 24));
+}
+
+void initialize_mode_countdown(void)
+{
+	game_mode = MODE_COUNTDOWN;
+	multi_vram_buffer_horz("Point zappers at circle", 23, NTADR_A(4, 24));
+	draw_circle();
 }
 
 void initialize_mode_end(void)
@@ -145,9 +155,9 @@ void initialize_mode_end(void)
 
 void read_light(void)
 {
-	// Reading light takes a full frame, so every other frame we check
-	// zapper 1 or zapper 2
-	if (frame_counter % 2 == 0)
+	// Reading light takes a full frame, so every other
+	// frame we check zapper 1 or zapper 2
+	if ((frame_counter % 2) == 0)
 	{
 		zapper1_on_target = zap_read(0);
 	}
@@ -165,38 +175,17 @@ void check_for_winner(void)
 		// nobody's won, keep playing
 		return;
 	}
+	else if (zapper1_on_target == 1)
+	{
+		winner = 1;
+	}
 	else
 	{
-		// somebody lost
-
-		if (zapper1_on_target == 0 && zapper2_on_target == 0)
-		{
-			// if they both lost on the same frame, then
-			// it goes to the frame counter
-			if (frame_counter % 2 == 0)
-			{
-				winner = 1;
-			}
-			else
-			{
-				winner = 2;
-			}
-		}
-		else
-		{
-			if (zapper1_on_target == 1)
-			{
-				winner = 1;
-			}
-			else
-			{
-				winner = 2;
-			}
-		}
+		winner = 2;
 	}
 }
 
-void initialize(void)
+void initialize_variables(void)
 {
 	frame_counter = 0;
 	game_mode = MODE_TITLE;
