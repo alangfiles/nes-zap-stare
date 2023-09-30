@@ -145,8 +145,16 @@ void initialize_mode_end(void)
 
 void read_light(void)
 {
-	zapper1_on_target = zap_read(0);
-	zapper2_on_target = zap_read(1);
+	// Reading light takes a full frame, so every other frame we check
+	// zapper 1 or zapper 2
+	if (frame_counter % 2 == 0)
+	{
+		zapper1_on_target = zap_read(0);
+	}
+	else
+	{
+		zapper2_on_target = zap_read(1);
+	}
 }
 
 void check_for_winner(void)
@@ -192,12 +200,13 @@ void initialize(void)
 {
 	frame_counter = 0;
 	game_mode = MODE_TITLE;
-	circle_color = (circle_color + 1) & 1; // 0 or 1
-	circle_x = 0x6000;										 // should give 0x4000-0xbf80
-	circle_y = 0x6000;										 // int
+	circle_x = 0x6000;
+	circle_y = 0x6000;
 	circle_x_speed = 0x0100;
 	circle_y_speed = 0x0100;
 	winner = 0;
+	zapper1_on_target = 1;
+	zapper2_on_target = 1;
 }
 
 void move_circle(void)
